@@ -21,11 +21,22 @@
     timer: 0,
   });
 
+  const tell = (s) => {
+    try {
+      chrome.runtime.sendMessage({ type: "state", state: s });
+    } catch {
+      // No extension context (e.g. tests). Ignore.
+    }
+  };
+
   const restore = () => {
     clearTimeout(state.timer);
     state.timer = 0;
     if (state.video) state.video.playbackRate = state.prevSpeed;
     state.video = null;
+    // On YouTube, ads.js knows if an ad is still showing; else go idle.
+    if (window.__ytSkipAds) window.__ytSkipAds.report();
+    else tell("idle");
   };
 
   // A run on a different video (e.g. the page swapped players): end it first.
@@ -41,6 +52,7 @@
   // Every click adds the same amount of time.
   state.endAt = Math.max(state.endAt, now) + STEP_MS;
   video.playbackRate = SPEED;
+  tell("step");
   clearTimeout(state.timer);
   state.timer = setTimeout(restore, state.endAt - now);
 })();

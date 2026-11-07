@@ -7,7 +7,19 @@ A tiny Chrome extension. Click its toolbar button (or press **Alt+S**) and the v
 - If the page has more than one video, it uses the one that is playing.
 - To change the shortcut, open `chrome://extensions/shortcuts`.
 
-It runs only when you click it or press the shortcut. It does not block ads, read your data, or use the network.
+## YouTube ads
+
+On YouTube, the extension can tell when an ad is playing (the player shows the `ad-showing` class). Choose a mode in the extension's **Options** (right-click the icon):
+
+| Mode | During an ad |
+|---|---|
+| **Indicator** (default) | The icon shows **AD**. Clicks do the normal 16x step. |
+| **Click to start** | One click plays 16x until the ad ends. |
+| **Automatic** | 16x starts when an ad starts and stops when it ends. Click to stop it for that ad. |
+
+The icon shows the state: ▶| ready, ▶ + AD an ad is playing, ⏩ 16x step running, ⏸ ad at 16x (click to stop). Outside ads and on other sites, each click is the normal 16x step.
+
+On YouTube it reads the page to see ads. On other sites it runs only when you click it or press the shortcut. It does not block ads, collect data, or use the network.
 
 ## Install
 

@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>YouTube Skip settings</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; min-width: 320px; }
+  h1 { font-size: 15px; margin: 0 0 4px; }
+  p { margin: 0 0 12px; opacity: .75; }
+  label { display: flex; gap: 8px; padding: 8px 0; cursor: pointer; }
+  label span { display: block; opacity: .75; font-size: 12.5px; }
+  #saved { font-size: 12px; opacity: 0; transition: opacity .2s; }
+</style>
+</head>
+<body>
+  <h1>YouTube ads</h1>
+  <p>On other sites and outside ads, each click is the normal 16x step.</p>
+  <form id="f">
+    <label><input type="radio" name="mode" value="indicator">
+      <div>Indicator<span>Show "AD" on the icon while an ad plays. You click as usual.</span></div></label>
+    <label><input type="radio" name="mode" value="click">
+      <div>Click to start<span>One click during an ad plays 16x until the ad ends.</span></div></label>
+    <label><input type="radio" name="mode" value="auto">
+      <div>Automatic<span>16x starts when an ad starts and stops when it ends. Click to stop it for that ad.</span></div></label>
+  </form>
+  <div id="saved">Saved</div>
+  <script src="options.js"></script>
+</body>
+</html>
