@@ -21,9 +21,9 @@
     timer: 0,
   });
 
-  const tell = (s) => {
+  const tell = (s, leftMs) => {
     try {
-      chrome.runtime.sendMessage({ type: "state", state: s });
+      chrome.runtime.sendMessage({ type: "state", state: s, leftMs });
     } catch {
       // No extension context (e.g. tests). Ignore.
     }
@@ -52,7 +52,7 @@
   // Every click adds the same amount of time.
   state.endAt = Math.max(state.endAt, now) + STEP_MS;
   video.playbackRate = SPEED;
-  tell("step");
+  tell("step", state.endAt - now); // time left drives the icon's fill level
   clearTimeout(state.timer);
   state.timer = setTimeout(restore, state.endAt - now);
 })();

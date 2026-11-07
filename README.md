@@ -2,7 +2,7 @@
 
 [![Download the latest version](https://img.shields.io/github/v/release/vviseguy/youtube-skip?label=Download&style=for-the-badge&color=e62117)](https://github.com/vviseguy/youtube-skip/releases/latest/download/youtube-skip.zip)
 
-A small Chrome extension that briefly plays a video at 16x speed. Each click (or press of Alt+S) skips about 14 seconds of video, and clicks add together. On YouTube, it can also detect ads and speed through them.
+A small Chrome extension that briefly plays a video at 16x speed. Each click (or press of Alt+S) plays about 15 seconds of video in under a second, and clicks add together. On YouTube, it can also detect ads and speed through them.
 
 - It runs in Chrome, Edge, and Brave on a computer. It does not run on phones, Firefox, or Safari.
 - It works on YouTube, Amazon Prime Video, and most other sites that use a standard video player.
@@ -33,16 +33,16 @@ About the warnings Chrome shows:
 
 ### Clicks add together
 
-Each click plays the video at 16x for 0.9 seconds, which skips about 14 seconds of video. If you click again before that time ends, the time adds on. The total is the same no matter how quickly you click.
+Each click plays about 15 seconds of video in under a second (16x speed for 0.9 seconds). If you click again before that time ends, the time adds on. The total is the same no matter how quickly you click.
 
-| Clicks | Video skipped |
+| Clicks | Video played at 16x |
 |---|---|
 | 1 | about 14 seconds |
 | 2 | about 29 seconds |
 | 3 | about 43 seconds |
 | 4 | about 58 seconds |
 
-A simple rule: divide the seconds remaining by 15, and click that many times. Using 15 instead of 14 leaves a small margin, so the video returns to normal speed slightly before the ad ends.
+A simple rule: divide the seconds remaining by 15, and click that many times. Each click is actually a little under 15 seconds, so this leaves a small margin, and the video returns to normal speed slightly before the ad ends.
 
 This works on any site with a video.
 
@@ -64,8 +64,8 @@ In **Click to start** and **Automatic**, a click during an ad starts or stops th
 |---|---|
 | ▶\| | Ready |
 | ▶ with "AD" | An ad is playing |
-| ⏩ | Playing at 16x |
-| ⏸ | An ad is playing at 16x. Click to stop. |
+| ⏩ filling with white | Playing at 16x. Each click pours in more; the level drains as the time runs out, so it shows the time left. |
+| ⏸ filled with white | An ad is playing at 16x. Click to stop. |
 
 ## Updating
 
