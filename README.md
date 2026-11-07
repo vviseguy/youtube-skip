@@ -2,73 +2,91 @@
 
 [![Download the latest version](https://img.shields.io/github/v/release/vviseguy/youtube-skip?label=Download&style=for-the-badge&color=e62117)](https://github.com/vviseguy/youtube-skip/releases/latest/download/youtube-skip.zip)
 
-Get through video ads fast. Click the button (or press **Alt+S**) and the video plays at **16x speed** for a moment, then goes back to normal. On YouTube it can also see when an ad starts and speed through it for you.
+A small Chrome extension that briefly plays a video at 16x speed. Each click (or press of Alt+S) skips about 14 seconds of video, and clicks add together. On YouTube, it can also detect ads and speed through them.
 
-- Works in **Chrome on a computer**. It also works in Edge and Brave. It does not work on phones, Firefox, or Safari.
-- Works on YouTube and Amazon Prime Video, and most other sites with a normal video player.
-- Does **not** work on live streams. A live video cannot play faster than it is broadcast.
-- It does not block ads. The ad still plays, only much faster.
-- It does not collect anything about you and does not connect to the internet.
-- Not made by or connected to YouTube or Google.
+- It runs in Chrome, Edge, and Brave on a computer. It does not run on phones, Firefox, or Safari.
+- It works on YouTube, Amazon Prime Video, and most other sites that use a standard video player.
+- It does not work on live streams, because a live video cannot play faster than it is broadcast.
+- It does not block ads; the ad still plays, only faster.
+- It collects no data and makes no network requests.
+- It is not affiliated with YouTube or Google.
 
-## Install (about 2 minutes)
+## Install
 
-This extension is not in the Chrome Web Store, so you add it by hand:
+The extension is not in the Chrome Web Store, so it must be added manually:
 
-1. **Download** [youtube-skip.zip](https://github.com/vviseguy/youtube-skip/releases/latest/download/youtube-skip.zip).
-2. **Unzip it.** Windows: right-click the file → **Extract All** → **Extract**. Mac: double-click it.
-   Put the unzipped folder somewhere you will keep it, such as Documents. **If you delete or move this folder later, the extension stops working.**
-3. **Open the extensions page.** Copy `chrome://extensions` into the address bar and press Enter. (In Edge, use `edge://extensions`.)
-4. Turn on **Developer mode** (switch at the top right).
-5. Click **Load unpacked** and choose the unzipped folder (the one that has `manifest.json` inside).
-6. **Pin the button.** Click the puzzle-piece icon at the top right of Chrome, then the pin next to YouTube Skip. If you do not pin it, you cannot see the button.
-7. **Refresh any YouTube tabs** that were already open, so ad sensing can start there.
+1. Download [youtube-skip.zip](https://github.com/vviseguy/youtube-skip/releases/latest/download/youtube-skip.zip).
+2. Unzip it. On Windows, right-click the file and choose **Extract All**. On a Mac, double-click it.
+   Keep the unzipped folder in a permanent location, such as Documents. If the folder is later moved or deleted, the extension stops working.
+3. Open the extensions page by typing `chrome://extensions` into the address bar. In Edge, use `edge://extensions`.
+4. Turn on **Developer mode** (top right).
+5. Click **Load unpacked** and select the unzipped folder (the one that contains `manifest.json`).
+6. Pin the button: click the puzzle-piece icon at the top right of the browser, then click the pin next to YouTube Skip. Otherwise, the button stays hidden.
+7. Refresh any YouTube tabs that were already open, so that ad detection can start in them.
 
-**What the warnings mean:**
-- Chrome says the extension can **"read and change your data on youtube.com"**. This lets it see when an ad plays and change the video speed. It does nothing on other sites until you click it.
-- Chrome may show a note about **developer mode extensions** when it starts. That is normal for extensions added by hand. You can close it.
+About the warnings Chrome shows:
+
+- Chrome says the extension can "read and change your data on youtube.com". This is how it detects ads and changes the video speed. On other sites, it does nothing until you click it.
+- Chrome may show a notice about developer mode extensions when it starts. This is normal for manually installed extensions, and it can be dismissed.
 
 ## How to use it
 
-**On any video site:** click the button or press **Alt+S**. Each click skips about **14 seconds** of video. Click 2 times quickly to skip about 30 seconds.
+### Clicks add together
 
-**On YouTube ads:** choose how it acts in the settings. To open them, right-click the button and choose **Options**.
+Each click plays the video at 16x for 0.9 seconds, which skips about 14 seconds of video. If you click again before that time ends, the time adds on. The total is the same no matter how quickly you click.
 
-| Setting | What happens when an ad plays |
+| Clicks | Video skipped |
 |---|---|
-| **Indicator** (default) | The button shows **AD**. Clicks work as usual. |
-| **Click to start** | One click speeds up the whole ad. Normal speed comes back when the ad ends. |
-| **Automatic** | Every ad speeds up by itself and stops when the ad ends. Click the button to let that ad play normally. |
+| 1 | about 14 seconds |
+| 2 | about 29 seconds |
+| 3 | about 43 seconds |
+| 4 | about 58 seconds |
 
-**What the button shows:**
+A simple rule: divide the seconds remaining by 15, and click that many times. Using 15 instead of 14 leaves a small margin, so the video returns to normal speed slightly before the ad ends.
+
+This works on any site with a video.
+
+### YouTube ad settings
+
+To choose how the extension handles YouTube ads, right-click the button and choose **Options**.
+
+| Setting | During a YouTube ad |
+|---|---|
+| **Indicator** (default) | The button shows "AD". Clicks add time as usual. |
+| **Click to start** | One click plays the whole ad at 16x. Normal speed returns when the ad ends. |
+| **Automatic** | Each ad plays at 16x by itself, and normal speed returns when the ad ends. Click the button to play that ad at normal speed. |
+
+In **Click to start** and **Automatic**, a click during an ad starts or stops the speed-up instead of adding time. Outside ads, clicks add time as usual.
+
+### What the button shows
 
 | Button | Meaning |
 |---|---|
 | ▶\| | Ready |
-| ▶ with **AD** | An ad is playing |
-| ⏩ | Playing at 16x for a moment |
-| ⏸ | Ad playing at 16x. Click to stop. |
+| ▶ with "AD" | An ad is playing |
+| ⏩ | Playing at 16x |
+| ⏸ | An ad is playing at 16x. Click to stop. |
 
-## Updates
+## Updating
 
-**It does not update by itself.** To get a new version:
+The extension does not update itself. To install a new version:
 
-1. Download the zip again from the button at the top.
-2. Unzip it and replace the files in your old folder.
-3. On `chrome://extensions`, click the circular arrow on YouTube Skip.
+1. Download the zip again using the button at the top of this page.
+2. Unzip it and replace the files in your existing folder.
+3. On `chrome://extensions`, click the reload arrow on YouTube Skip.
 
-## Something is wrong?
+## Troubleshooting
 
-- **I cannot see the button:** pin it (Install step 6).
-- **Options is missing:** you have an old version. Update it (see Updates).
-- **AD never shows on YouTube:** refresh the YouTube tab. If it still does not show, YouTube may have changed its site. Please [open an issue](https://github.com/vviseguy/youtube-skip/issues).
-- **Alt+S does nothing:** another extension may use Alt+S. Open `chrome://extensions/shortcuts` and choose a different key.
-- **Nothing happens on a live stream:** this is expected. Live video cannot be sped up.
-- **Nothing happens on a site:** the site may not use a normal video player. The extension cannot speed up that video.
+- **The button is not visible.** Pin it (Install, step 6).
+- **There is no Options menu.** You have an older version. See Updating.
+- **"AD" never appears on YouTube.** Refresh the YouTube tab. If it still does not appear, YouTube may have changed its page; please [open an issue](https://github.com/vviseguy/youtube-skip/issues).
+- **Alt+S does nothing.** Another extension may use the same shortcut. Choose a different one at `chrome://extensions/shortcuts`.
+- **Nothing happens on a live stream.** This is expected; live video cannot be sped up.
+- **Nothing happens on another site.** The site may not use a standard video player.
 
 ## For developers
 
-The extension is plain JavaScript in [`extension/`](extension) with no build step. To release a new version:
+The extension is plain JavaScript in [`extension/`](extension), with no build step. To release a new version:
 
 1. Change `"version"` in `extension/manifest.json`, for example to `1.2.1`.
 2. Commit, then tag and push:
@@ -77,7 +95,7 @@ The extension is plain JavaScript in [`extension/`](extension) with no build ste
    git tag v1.2.1 && git push origin main v1.2.1
    ```
 
-The `release` workflow zips `extension/` and attaches `youtube-skip.zip` to a GitHub Release. It stops if the tag and the manifest version are different. Ad sensing uses the `ad-showing` class on YouTube's player element ([`ads.js`](extension/ads.js)).
+The `release` workflow zips `extension/` and attaches `youtube-skip.zip` to a GitHub Release. It fails if the tag does not match the manifest version. Ad detection uses the `ad-showing` class on YouTube's player element (see [`ads.js`](extension/ads.js)).
 
 ## License
 
