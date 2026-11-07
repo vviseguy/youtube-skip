@@ -1,16 +1,28 @@
 {
-    "manifest_version": 3,
-    "name": "YouTube Skip",
-    "version": "1.0.1",
-    "description": "Click to play the video at 16x for about 14 seconds of video. Click again to add more.",
-    "permissions": ["activeTab", "scripting"],
-    "background": {
-      "service_worker": "background.js"
-    },
-    "action": {
-      "default_icon": {
-        "16": "icon200b.png"
-      }
+  "manifest_version": 3,
+  "name": "YouTube Skip",
+  "version": "1.1.0",
+  "description": "Click (or press Alt+S) to play the video at 16x for about 14 seconds of video. Each extra click adds the same again.",
+  "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon200b.png",
+    "48": "icon200.png",
+    "128": "icon200.png"
+  },
+  "action": {
+    "default_title": "YouTube Skip: 16x for a few seconds (Alt+S)",
+    "default_icon": {
+      "16": "icon200b.png",
+      "32": "icon200b.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+S" },
+      "description": "Play the video at 16x for a few seconds"
     }
   }
-  
+}
