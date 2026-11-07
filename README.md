@@ -2,6 +2,8 @@
 
 [![Download the latest version](https://img.shields.io/github/v/release/vviseguy/youtube-skip?label=Download&style=for-the-badge&color=e62117)](https://github.com/vviseguy/youtube-skip/releases/latest/download/youtube-skip.zip)
 
+For the parts of a video you would rather not sit through: ads, endless intros, or the scene everyone warned you about.
+
 A small Chrome extension that briefly plays a video at 16x speed. Each click (or press of Alt+S) plays about 15 seconds of video in under a second, and clicks add together. On YouTube, it can also detect ads and speed through them.
 
 - It runs in Chrome, Edge, and Brave on a computer. It does not run on phones, Firefox, or Safari.
