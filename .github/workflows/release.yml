@@ -1,0 +1,27 @@
+# Push a tag like v1.0.1 to publish a release.
+# The tag must match "version" in extension/manifest.json.
+# The zip name has no version, so the README link
+# releases/latest/download/youtube-skip.zip always gets the newest one.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match manifest version
+        run: |
+          v=$(node -p "require('./extension/manifest.json').version")
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest version $v" >&2
+            exit 1
+          fi
+      - name: Package
+        run: cd extension && zip -X -r ../youtube-skip.zip .
+      - run: gh release create "$GITHUB_REF_NAME" youtube-skip.zip --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

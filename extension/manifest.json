@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "YouTube Skip",
-    "version": "1.0",
-    "description": "Play the video at 50x speed for 1 second.",
+    "version": "1.0.1",
+    "description": "Click to play the video at 16x for about 14 seconds of video. Click again to add more.",
     "permissions": ["activeTab", "scripting"],
     "background": {
       "service_worker": "background.js"
