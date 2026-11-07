@@ -15,16 +15,27 @@ chrome.action.onClicked.addListener(async (tab) => {
 // Per-tab icon state, reported by ads.js and content.js:
 //   idle  - skip glyph (static)
 //   ad    - play glyph + "AD" badge (static)
-//   step  - liquid fill: level = time left / FULL_MS, drains with the clock
-//   adrun - liquid full, surface keeps rolling, pause glyph (click to stop)
+//   step  - liquid fill: level = levelFor(time left), drains with the clock
+//   adrun - liquid full, surface keeps moving, pause glyph (click to stop)
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg?.type !== "state" || !sender.tab) return;
   setState(sender.tab.id, msg.state, msg.leftMs);
 });
 
 const STEP_MS = 900;
-const FULL_MS = 4 * STEP_MS; // 4 clicks fill the icon to MAX_LEVEL
-const MAX_LEVEL = 0.75; // never fill to the top, so the surface stays visible
+// Fill on click follows a log curve of the time left, in clicks
+// (k = leftMs / STEP_MS): the first click fills to FIRST_CLICK, then it
+// tapers off and reaches the top at about 30 clicks (1 click 25%, 2 40%,
+// 4 55%, 8 71%, 16 86%). Emptying is linear: each run keeps a scale
+// (ms per full icon) that only grows, set so a click lands on the log curve
+// when that is higher than the current scale allows. Between clicks the
+// level is simply timeLeft / scale.
+const FIRST_CLICK = 0.25;
+const TAPER = 0.22;
+const levelFor = (leftMs) => {
+  const k = Math.max(0, leftMs) / STEP_MS;
+  return k <= 1 ? k * FIRST_CLICK : Math.min(1, FIRST_CLICK + TAPER * Math.log(k));
+};
 const BUBBLE_MS = 700; // time for a bubble to rise from the bottom to the top
 const FRAME_MS = 100; // the toolbar icon can take about 10 updates a second
 
@@ -35,7 +46,7 @@ const TITLES = {
   adrun: "Ad at 16x - click to stop",
 };
 
-/** tabId -> { kind, endAt, shown, bubbles, water } for animated tabs. */
+/** tabId -> { kind, endAt, scale, shown, bubbles, water } for animated tabs. */
 const running = new Map();
 let loop = 0;
 
@@ -54,9 +65,13 @@ function setState(tabId, state, leftMs) {
     }
     const water = prev?.water ?? makeWater(now);
     water.splash(); // each click splashes the surface
+    const left = leftMs ?? STEP_MS;
+    const scale =
+      state === "step" ? Math.max(prev?.scale ?? 0, left / Math.max(0.01, levelFor(left))) : prev?.scale ?? 0;
     running.set(tabId, {
       kind: state,
-      endAt: state === "step" ? now + (leftMs ?? STEP_MS) : 0,
+      endAt: state === "step" ? now + left : 0,
+      scale,
       shown: prev?.shown ?? 0,
       bubbles,
       water,
@@ -77,9 +92,13 @@ function setState(tabId, state, leftMs) {
 function tick() {
   const now = Date.now();
   for (const [tabId, r] of running) {
-    const target =
-      MAX_LEVEL * (r.kind === "adrun" ? 1 : Math.min(1, Math.max(0, r.endAt - now) / FULL_MS));
+    // Ad runs have no end time: show them full.
+    const target = r.kind === "adrun" ? 1 : Math.min(1, Math.max(0, r.endAt - now) / r.scale);
     r.bubbles = r.bubbles.filter((b) => now - b.born < BUBBLE_MS);
+    // Now and then a single bubble, so the liquid stays alive between clicks.
+    if (Math.random() < 0.07) {
+      r.bubbles.push({ x: 2 + Math.random() * 12, born: now, r: 0.5 + Math.random() * 0.4 });
+    }
     r.water.advance(now);
     // Pour up quickly; drain exactly with the clock.
     r.shown = target > r.shown ? r.shown + (target - r.shown) * 0.45 : target;
@@ -97,17 +116,17 @@ function tick() {
 }
 
 function paint(tabId, glyph, level, t, bubbles = [], surface = flat) {
-  const imageData = {
-    16: draw(16, glyph, level, t, bubbles, surface),
-    32: draw(32, glyph, level, t, bubbles, surface),
-  };
+  // Chrome picks the size that matches the screen: 16 at 100%, 32 at 200%,
+  // 40 at 250%, 48 at 300%. Exact sizes stay sharp instead of being scaled.
+  const imageData = {};
+  for (const size of ICON_SIZES) imageData[size] = draw(size, glyph, level, t, bubbles, surface);
   chrome.action
     .setIcon({ tabId, imageData })
     .catch(() => running.delete(tabId)); // tab closed
 }
 
-// The water surface: a small spring simulation. Each click drops a soft
-// splash at a random point; the ripples run to the sides and settle, with
+// The water surface: a small spring simulation. Each click drops two soft,
+// unequal, lopsided splashes; the ripples run to the sides and settle, with
 // rare small drips while it runs. Tuned (40 columns, gaussian smoothing,
 // Catmull-Rom between columns) so the curves are about as round as two
 // gentle sine waves, without looking regular. surface(x) for x in [0, 1]
@@ -127,9 +146,22 @@ function makeWater(startAt) {
   const clampI = (i) => Math.min(N - 1, Math.max(0, i));
   let last = startAt;
 
-  const bump = (amp) => {
-    const c = 6 + Math.random() * (N - 12);
-    for (let i = 0; i < N; i++) v[i] -= amp * Math.exp(-(((i - c) / 5) ** 2));
+  // A lopsided bump: steeper on one side than the other.
+  const bump = (amp, c, wl, wr) => {
+    for (let i = 0; i < N; i++) {
+      const d = (i - c) / (i < c ? wl : wr);
+      v[i] -= amp * Math.exp(-(d * d));
+    }
+  };
+  // Each click: two smaller, unequal splashes at uneven places, each leaning
+  // a random way, so the surface stays irregular instead of one clean peak.
+  const splash = (amp) => {
+    const left = Math.random() < 0.5;
+    const c1 = left ? 5 + Math.random() * 12 : 23 + Math.random() * 12;
+    const c2 = left ? 22 + Math.random() * 13 : 5 + Math.random() * 13;
+    const lean = () => (Math.random() < 0.5 ? [2.5, 5.5] : [5.5, 2.5]);
+    bump(amp * (0.55 + Math.random() * 0.15), c1, ...lean());
+    bump(amp * (0.3 + Math.random() * 0.15), c2, ...lean());
   };
   const simStep = () => {
     for (let k = 0; k < 2; k++) {
@@ -145,11 +177,11 @@ function makeWater(startAt) {
       }
       for (let i = 0; i < N; i++) v[i] += lap[i];
     }
-    if (Math.random() < 0.02) bump(0.18); // small drips
+    if (Math.random() < 0.02) bump(0.18, Math.random() * N, 4, 4); // small drips
   };
 
   return {
-    splash: () => bump(1.3),
+    splash: () => splash(1.5),
     advance(now) {
       // Fixed 60 Hz steps, whatever the frame rate; cap catch-up after sleep.
       let steps = Math.min(30, Math.floor((now - last) / SIM_MS));
@@ -182,9 +214,16 @@ function makeWater(startAt) {
 const RED = "#e61a1a";
 const WHITE = "#ffffff";
 
+const ICON_SIZES = [16, 32, 40, 48];
+
 function draw(size, glyph, level, t, bubbles = [], surface = flat) {
   const c = new OffscreenCanvas(size, size);
   const g = c.getContext("2d");
+  // At 16 px the waves and bubbles are about 1 px and get lost, so make the
+  // waves taller and the bubbles at least 2 px there. Larger sizes are exact.
+  const tiny = size <= 16;
+  const waveBoost = tiny ? 1.7 : 1;
+  const minBubbleR = tiny ? 1 : 0.6;
   const s = size / 16;
   const box = () => {
     g.beginPath();
@@ -229,7 +268,7 @@ function draw(size, glyph, level, t, bubbles = [], surface = flat) {
     g.beginPath();
     g.moveTo(0, size);
     for (let x = 0; x <= size + 0.01; x += Math.max(0.5, s / 2)) {
-      g.lineTo(x, y + surface(x / size) * s);
+      g.lineTo(x, y + surface(x / size) * s * waveBoost);
     }
     g.lineTo(size, size);
     g.closePath();
@@ -245,7 +284,7 @@ function draw(size, glyph, level, t, bubbles = [], surface = flat) {
       if (by < y) continue; // popped at the surface (clip hides the rest)
       const wobble = Math.sin(age * 9 + b.x) * 0.6 * s;
       g.beginPath();
-      g.arc(b.x * s + wobble, by, Math.max(0.6, b.r * s), 0, Math.PI * 2);
+      g.arc(b.x * s + wobble, by, Math.max(minBubbleR, b.r * s), 0, Math.PI * 2);
       g.fill();
     }
     g.restore();

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Skip",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Click (or Alt+S) to play the video at 16x for a few seconds. On YouTube it can sense ads and speed through them.",
   "permissions": [
     "activeTab",
