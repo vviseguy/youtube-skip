@@ -8,9 +8,25 @@ chrome.action.onClicked.addListener(async (tab) => {
     // No ads.js in this tab (not YouTube, or the page predates install).
   }
   if (!handled) {
-    chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+    } catch {
+      // Chrome blocks extensions on its own pages (chrome://, the New Tab
+      // page, the Web Store). Say so briefly on the button instead of failing.
+      cannotRun(tab.id);
+    }
   }
 });
+
+function cannotRun(tabId) {
+  chrome.action.setBadgeText({ tabId, text: "–" }).catch(() => {});
+  chrome.action.setBadgeBackgroundColor({ tabId, color: "#6b7280" }).catch(() => {});
+  chrome.action.setTitle({ tabId, title: "Cannot run on this page" }).catch(() => {});
+  setTimeout(() => {
+    chrome.action.setBadgeText({ tabId, text: "" }).catch(() => {});
+    chrome.action.setTitle({ tabId, title: TITLES.idle }).catch(() => {});
+  }, 1500);
+}
 
 // Per-tab icon state, reported by ads.js and content.js:
 //   idle  - skip glyph (static)

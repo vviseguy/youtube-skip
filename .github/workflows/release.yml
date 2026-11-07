@@ -1,7 +1,8 @@
 # Push a tag like v1.0.1 to publish a release.
 # The tag must match "version" in extension/manifest.json.
-# The zip name has no version, so the README link
-# releases/latest/download/youtube-skip.zip always gets the newest one.
+# Asset names have no version, so the README links
+# releases/latest/download/youtube-skip.zip and .../download.png
+# always get the newest release.
 name: release
 on:
   push:
@@ -22,6 +23,10 @@ jobs:
           fi
       - name: Package
         run: cd extension && zip -X -r ../youtube-skip.zip .
-      - run: gh release create "$GITHUB_REF_NAME" youtube-skip.zip --title "$GITHUB_REF_NAME" --generate-notes
+      - name: Draw the README download button for this version
+        run: |
+          pip install --quiet pillow==12.3.0
+          python3 tools/make-button.py --version "${GITHUB_REF_NAME#v}" --out download.png
+      - run: gh release create "$GITHUB_REF_NAME" youtube-skip.zip download.png --title "$GITHUB_REF_NAME" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

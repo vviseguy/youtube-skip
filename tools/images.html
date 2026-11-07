@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>README images</title>
+<style>
+  body { margin: 0; background: #f6f7f9; color: #1f2329; font: 14px/1.45 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 18px; margin: 0 0 4px; } h2 { font-size: 14px; margin: 24px 0 8px; }
+  p { margin: 0 0 12px; color: #5b6472; }
+  canvas { display: block; max-width: 100%; height: auto; border-radius: 10px; }
+  .icons { display: flex; gap: 24px; flex-wrap: wrap; }
+  .icons figure { margin: 0; text-align: center; font-size: 12px; color: #5b6472; }
+  .icons canvas { width: 32px; height: 32px; margin: 0 auto 6px; border-radius: 0; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #d6dae0; background: #fff; cursor: pointer; }
+  #status { color: #5b6472; margin-left: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>README images</h1>
+  <p>Drawn from the real extension code. Start the helper with <code>node tools/serve.mjs</code>, open this page, click Save, then run <code>python tools/make-images.py</code>.</p>
+  <div><button id="save">Save all images</button><span id="status"></span></div>
+  <h2>Hero (animated)</h2><canvas id="hero"></canvas>
+  <h2>Icon states</h2><div class="icons" id="icons"></div>
+  <h2>Install: Developer mode</h2><canvas id="step1"></canvas>
+  <h2>Install: Load unpacked</h2><canvas id="step2"></canvas>
+  <h2>Install: Pin the button</h2><canvas id="step3"></canvas>
+</main>
+
+<script>
+// Deterministic renders: seeded random numbers and a virtual clock.
+let seed = 7;
+Math.random = () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+let vnow = 0; Date.now = () => vnow;
+const noop = () => {}, ok = () => Promise.resolve();
+let onMsg = null, lastIcon = null;
+window.chrome = {
+  action: { onClicked: { addListener: noop }, setBadgeText: ok, setBadgeBackgroundColor: ok, setTitle: ok,
+    setIcon: ({ imageData }) => { lastIcon = imageData; return ok(); } },
+  runtime: { onMessage: { addListener: (f) => (onMsg = f) } },
+  storage: { sync: { get: (d, cb) => cb(d) }, onChanged: { addListener: noop } },
+};
+window.setInterval = () => 0; window.clearInterval = noop; // frames are driven by tick() below
+</script>
+<script src="../extension/background.js"></script>
+<script>
+// ---------- palette and helpers ----------
+const C = {
+  page: "#eef0f3", win: "#ffffff", line: "#dfe3e8", strip: "#e8ebef", bone: "#e3e6eb", bone2: "#eef0f3",
+  ink: "#2b3038", muted: "#7c8594", red: "#e61a1a", ring: "rgba(230,26,26,.16)", video: "#20242b", track: "#454b55", amber: "#f2b705",
+};
+const FONT = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+const W = 720, H = 405;
+
+function canvasFor(id, scale) {
+  const c = document.getElementById(id) || document.createElement("canvas");
+  c.width = W * scale; c.height = H * scale; c.style.width = W + "px";
+  const g = c.getContext("2d"); g.setTransform(scale, 0, 0, scale, 0, 0);
+  return [c, g];
+}
+const rr = (g, x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+const bone = (g, x, y, w, h, color = C.bone) => { g.fillStyle = color; rr(g, x, y, w, h, h / 2); g.fill(); };
+const text = (g, s, x, y, size, color = C.ink, weight = 500, align = "left") => { g.fillStyle = color; g.font = `${weight} ${size}px ${FONT}`; g.textAlign = align; g.textBaseline = "middle"; g.fillText(s, x, y); };
+function highlight(g, x, y, w, h, r, n) {
+  g.save();
+  g.fillStyle = C.ring; rr(g, x - 6, y - 6, w + 12, h + 12, r + 6); g.fill();
+  g.strokeStyle = C.red; g.lineWidth = 2; rr(g, x - 3, y - 3, w + 6, h + 6, r + 3); g.stroke();
+  if (n) { const cx = x + w + 10, cy = y - 10; g.fillStyle = C.red; g.beginPath(); g.arc(cx, cy, 10, 0, 7); g.fill(); text(g, String(n), cx, cy + 0.5, 12, "#fff", 700, "center"); }
+  g.restore();
+}
+function iconImage(imgData) { const c = document.createElement("canvas"); c.width = imgData.width; c.height = imgData.height; c.getContext("2d").putImageData(imgData, 0, 0); return c; }
+function drawBadge(g, x, y) { // Chrome-style badge at the icon's lower right
+  g.fillStyle = "#222"; rr(g, x, y, 17, 10, 3); g.fill(); text(g, "AD", x + 8.5, y + 5.3, 7.5, "#fff", 700, "center");
+}
+function puzzle(g, x, y, s, color = C.muted) { // simple extensions (puzzle) glyph
+  g.save(); g.translate(x, y); g.scale(s / 16, s / 16); g.fillStyle = color;
+  rr(g, 2, 5, 9, 9, 1.5); g.fill(); g.beginPath(); g.arc(6.5, 4.5, 2, 0, 7); g.fill(); g.beginPath(); g.arc(11.5, 9.5, 2, 0, 7); g.fill();
+  g.restore();
+}
+function pinGlyph(g, x, y, color) {
+  g.save(); g.translate(x, y); g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 1.6;
+  g.beginPath(); g.moveTo(-3, -6); g.lineTo(3, -6); g.lineTo(2, -1); g.lineTo(4, 2); g.lineTo(-4, 2); g.lineTo(-2, -1); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(0, 2); g.lineTo(0, 7); g.stroke(); g.restore();
+}
+function cursor(g, x, y, pressed) {
+  g.save(); g.translate(x, y); if (pressed) g.scale(0.92, 0.92);
+  g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 17); g.lineTo(4.5, 13); g.lineTo(7.5, 19.5); g.lineTo(10.2, 18.3); g.lineTo(7.3, 12); g.lineTo(13, 12); g.closePath();
+  g.fillStyle = C.ink; g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.4; g.stroke(); g.restore();
+}
+
+// Browser window skeleton. Returns layout positions.
+function browser(g, { url = null, icon = null, badge = false, puzzleRing = false } = {}) {
+  g.fillStyle = C.page; g.fillRect(0, 0, W, H);
+  const x = 24, y = 18, w = W - 48, h = H - 36;
+  g.save(); g.shadowColor = "rgba(20,25,35,.10)"; g.shadowBlur = 18; g.shadowOffsetY = 4;
+  g.fillStyle = C.win; rr(g, x, y, w, h, 12); g.fill(); g.restore();
+  g.strokeStyle = C.line; g.lineWidth = 1; rr(g, x + 0.5, y + 0.5, w - 1, h - 1, 12); g.stroke();
+  // tab strip
+  g.save(); rr(g, x, y, w, h, 12); g.clip();
+  g.fillStyle = C.strip; g.fillRect(x, y, w, 36);
+  g.fillStyle = C.win; rr(g, x + 12, y + 8, 170, 30, 8); g.fill();
+  bone(g, x + 26, y + 19, 16, 8, C.bone); bone(g, x + 48, y + 19, 96, 8);
+  bone(g, x + 196, y + 19, 80, 8, "#dde1e6");
+  g.restore();
+  // toolbar
+  const ty = y + 36, th = 44;
+  g.fillStyle = C.win; g.fillRect(x + 1, ty, w - 2, th);
+  g.strokeStyle = C.line; g.beginPath(); g.moveTo(x + 1, ty + th + 0.5); g.lineTo(x + w - 1, ty + th + 0.5); g.stroke();
+  for (let i = 0; i < 3; i++) { g.fillStyle = C.bone2; g.beginPath(); g.arc(x + 24 + i * 26, ty + 22, 9, 0, 7); g.fill(); }
+  const ax = x + 104, aw = w - 104 - 120;
+  g.fillStyle = C.bone2; rr(g, ax, ty + 9, aw, 26, 13); g.fill();
+  if (url) text(g, url, ax + 16, ty + 22.5, 12.5, C.ink, 450); else bone(g, ax + 16, ty + 18, 180, 8);
+  const px = x + w - 102, ix = x + w - 70;
+  puzzle(g, px, ty + 14, 16);
+  if (puzzleRing) highlight(g, px - 4, ty + 10, 24, 24, 6);
+  if (icon) { g.drawImage(iconImage(icon), ix - 3, ty + 9, 26, 26); if (badge) drawBadge(g, ix + 10, ty + 26); }
+  g.fillStyle = C.bone; g.beginPath(); g.arc(x + w - 26, ty + 22, 10, 0, 7); g.fill();
+  return { x, y, w, h, cy: ty + th, iconAt: [ix + 10, ty + 22], puzzleAt: [px + 8, ty + 22] };
+}
+
+const ICON_PX = 64;
+const iconData = (glyph, level = 0, water = null, bubbles = [], t = 0) => draw(ICON_PX, glyph, level, t, bubbles, water ? water.surface : undefined);
+
+// ---------- hero animation ----------
+// 45 s ad. 3 clicks (about 43 s at 16x), then the ad finishes at normal speed.
+const FPS = 15, AD_S = 45;
+const CLICKS = [1.35, 1.6, 1.85];
+function heroFrames() {
+  seed = 7; vnow = 100000; running.clear();
+  const frames = []; const total = 6.8, dt = 1 / FPS;
+  let adPos = 0, contentPos = 0, endAt = 0, state = "ad", rate = 1;
+  onMsg({ type: "state", state: "ad" }, { tab: { id: 1 } });
+  for (let k = 0; k * dt < total; k++) {
+    const t = k * dt;
+    // clicks
+    for (const c of CLICKS) if (t - dt < c && t >= c) {
+      const now = vnow; endAt = Math.max(endAt, now) + STEP_MS; state = "step";
+      onMsg({ type: "state", state: "step", leftMs: endAt - now }, { tab: { id: 1 } });
+    }
+    if (state === "step" && vnow >= endAt) { state = adPos < AD_S ? "ad" : "idle"; onMsg({ type: "state", state }, { tab: { id: 1 } }); }
+    rate = state === "step" ? 16 : 1;
+    if (adPos < AD_S) { adPos = Math.min(AD_S, adPos + dt * rate); if (adPos >= AD_S && state !== "step") { state = "idle"; onMsg({ type: "state", state }, { tab: { id: 1 } }); } }
+    else contentPos += dt * rate;
+    tick();
+    const r = running.get(1);
+    frames.push({ t, adPos, contentPos, inAd: adPos < AD_S, fast: state === "step", icon: lastIcon[ICON_PX] ?? lastIcon[48], badge: state === "ad" && !r });
+    vnow += 1000 * dt;
+  }
+  return frames;
+}
+function heroFrame(g, f) {
+  const L = browser(g, { icon: f.icon, badge: f.badge });
+  // content: video + side list
+  const vx = L.x + 24, vy = L.cy + 20, vw = 400, vh = 225;
+  g.fillStyle = C.video; rr(g, vx, vy, vw, vh, 10); g.fill();
+  // a simple centered "frame" placeholder inside the video
+  g.fillStyle = "rgba(255,255,255,.06)"; rr(g, vx + vw / 2 - 60, vy + vh / 2 - 34, 120, 68, 8); g.fill();
+  // progress
+  const p = f.inAd ? f.adPos / AD_S : Math.min(1, 0.12 + f.contentPos / 600);
+  g.fillStyle = C.track; g.fillRect(vx + 14, vy + vh - 14, vw - 28, 4);
+  g.fillStyle = f.inAd ? C.amber : C.red; g.fillRect(vx + 14, vy + vh - 14, (vw - 28) * p, 4);
+  if (f.inAd) {
+    const left = Math.ceil(AD_S - f.adPos);
+    g.fillStyle = "rgba(255,255,255,.92)"; rr(g, vx + 12, vy + 12, 78, 22, 6); g.fill();
+    text(g, `Ad · 0:${String(left).padStart(2, "0")}`, vx + 51, vy + 23.5, 12, C.ink, 600, "center");
+  }
+  if (f.fast) { g.fillStyle = C.red; rr(g, vx + vw - 58, vy + 12, 46, 22, 6); g.fill(); text(g, "16×", vx + vw - 35, vy + 23.5, 12.5, "#fff", 700, "center"); }
+  // under-video skeleton
+  bone(g, vx, vy + vh + 16, 300, 10); bone(g, vx, vy + vh + 34, 180, 8, C.bone2);
+  // side list
+  for (let i = 0; i < 4; i++) { const sy = vy + i * 62; g.fillStyle = C.bone2; rr(g, vx + vw + 20, sy, 96, 54, 8); g.fill(); bone(g, vx + vw + 128, sy + 10, 70, 8); bone(g, vx + vw + 128, sy + 26, 46, 7, C.bone2); }
+  // cursor: the original three points (start in the video, the icon, a rest
+  // spot after the clicks), plus one short, casual move from the rest spot
+  // back to the start so the loop joins up.
+  const [ix, iy] = L.iconAt; const start = [vx + vw - 80, vy + 120];
+  const ease = (v) => { const a = Math.min(1, Math.max(0, v)); return a * a * (3 - 2 * a); };
+  const at = [ix - 2, iy - 2], rest = [at[0] + 40, at[1] + 70];
+  const lerp = (p, q, e) => [p[0] + (q[0] - p[0]) * e, p[1] + (q[1] - p[1]) * e];
+  let pos;
+  if (f.t < 2.3) pos = lerp(start, at, ease((f.t - 0.6) / 0.6)); // to the icon
+  else if (f.t < 5.4) pos = lerp(at, rest, ease((f.t - 2.3) / 0.5)); // step aside and rest
+  else { // back to the start: quick, with a slight sag, easing out
+    const k = Math.min(1, (f.t - 5.4) / 0.7), u = 1 - (1 - k) ** 3, v = 1 - u;
+    const mid = [(rest[0] + start[0]) / 2, Math.max(rest[1], start[1]) + 30];
+    pos = [v * v * rest[0] + 2 * v * u * mid[0] + u * u * start[0], v * v * rest[1] + 2 * v * u * mid[1] + u * u * start[1]];
+  }
+  const [cx, cy] = pos;
+  const pressed = CLICKS.some((c) => f.t >= c && f.t < c + 0.1);
+  if (pressed || CLICKS.some((c) => f.t >= c && f.t < c + 0.3)) {
+    const c0 = CLICKS.filter((c) => f.t >= c).at(-1), q = (f.t - c0) / 0.3;
+    g.strokeStyle = `rgba(230,26,26,${0.5 * (1 - q)})`; g.lineWidth = 2; g.beginPath(); g.arc(ix, iy, 12 + 10 * q, 0, 7); g.stroke();
+  }
+  cursor(g, cx, cy, pressed);
+}
+
+// ---------- install steps ----------
+function extensionsPage(g, { devOn, highlightToggle, highlightLoad }) {
+  const L = browser(g, { url: "chrome://extensions" }); // not installed yet: no icon
+  const x = L.x + 1, y = L.cy + 1, w = L.w - 2;
+  g.fillStyle = "#fafbfc"; g.fillRect(x, y, w, 56);
+  text(g, "Extensions", x + 24, y + 28, 17, C.ink, 600);
+  g.fillStyle = C.bone2; rr(g, x + w / 2 - 120, y + 14, 240, 28, 14); g.fill(); bone(g, x + w / 2 - 100, y + 24, 90, 8);
+  const tx = x + w - 66; text(g, "Developer mode", tx - 12, y + 28, 12.5, C.ink, 500, "right");
+  g.fillStyle = devOn ? "#3b6fd8" : "#c9ced6"; rr(g, tx, y + 19, 34, 18, 9); g.fill();
+  g.fillStyle = "#fff"; g.beginPath(); g.arc(devOn ? tx + 25 : tx + 9, y + 28, 7, 0, 7); g.fill();
+  if (highlightToggle) highlight(g, tx, y + 19, 34, 18, 9);
+  let cy = y + 56;
+  if (devOn) {
+    g.fillStyle = "#fafbfc"; g.fillRect(x, cy, w, 48);
+    g.strokeStyle = C.line; g.strokeRect(x + 0.5, cy + 0.5, w - 1, 0);
+    g.fillStyle = C.win; g.strokeStyle = "#c9ced6"; rr(g, x + 24, cy + 10, 120, 28, 6); g.fill(); g.stroke();
+    text(g, "Load unpacked", x + 84, cy + 24.5, 12.5, "#3b6fd8", 600, "center");
+    for (const [bx, bw] of [[x + 154, 110], [x + 274, 70]]) { g.fillStyle = C.win; rr(g, bx, cy + 10, bw, 28, 6); g.fill(); g.stroke(); bone(g, bx + 16, cy + 20, bw - 32, 8); }
+    if (highlightLoad) highlight(g, x + 24, cy + 10, 120, 28, 6);
+    cy += 48;
+  }
+  g.strokeStyle = C.line; g.beginPath(); g.moveTo(x, cy + 0.5); g.lineTo(x + w, cy + 0.5); g.stroke();
+  // extension cards
+  const cw = (w - 24 * 2 - 16 * 2) / 3;
+  for (let i = 0; i < 3; i++) {
+    const cx = x + 24 + i * (cw + 16), top = cy + 18, ch = H - 18 - 18 - top + 4;
+    g.fillStyle = C.win; g.strokeStyle = C.line; rr(g, cx, top, cw, Math.min(ch, 116), 10); g.fill(); g.stroke();
+    g.fillStyle = C.bone2; rr(g, cx + 14, top + 14, 28, 28, 6); g.fill();
+    bone(g, cx + 52, top + 18, cw - 80, 9); bone(g, cx + 52, top + 34, cw - 110, 7, C.bone2);
+    bone(g, cx + 14, top + 58, cw - 28, 7, C.bone2); bone(g, cx + 14, top + 72, cw - 60, 7, C.bone2);
+    g.fillStyle = "#c9ced6"; rr(g, cx + cw - 46, top + 90, 30, 16, 8); g.fill();
+  }
+}
+function pinPage(g) {
+  const L = browser(g, { puzzleRing: true });
+  const [px] = L.puzzleAt; const top = L.cy + 6, mw = 270, mx = Math.min(px + 40, L.x + L.w - 12) - mw;
+  // page skeleton behind
+  bone(g, L.x + 24, L.cy + 24, 260, 12); bone(g, L.x + 24, L.cy + 46, 380, 8, C.bone2); bone(g, L.x + 24, L.cy + 62, 340, 8, C.bone2);
+  g.fillStyle = C.bone2; rr(g, L.x + 24, L.cy + 86, 300, 170, 10); g.fill();
+  // menu
+  g.save(); g.shadowColor = "rgba(20,25,35,.16)"; g.shadowBlur = 20; g.shadowOffsetY = 6;
+  g.fillStyle = C.win; rr(g, mx, top, mw, 196, 10); g.fill(); g.restore();
+  g.strokeStyle = C.line; rr(g, mx + 0.5, top + 0.5, mw - 1, 195, 10); g.stroke();
+  text(g, "Extensions", mx + 16, top + 22, 13, C.ink, 600);
+  const rows = [null, "us", null];
+  rows.forEach((kind, i) => {
+    const ry = top + 46 + i * 44;
+    if (kind === "us") {
+      g.drawImage(iconImage(iconData("skip")), mx + 12, ry + 4, 26, 26);
+      text(g, "YouTube Skip", mx + 46, ry + 17, 13, C.ink, 500);
+      pinGlyph(g, mx + mw - 26, ry + 16, C.ink);
+      highlight(g, mx + mw - 38, ry + 4, 24, 24, 6, 9); // README install step 9
+    } else {
+      g.fillStyle = C.bone2; rr(g, mx + 15, ry + 7, 20, 20, 5); g.fill(); bone(g, mx + 46, ry + 13, 110, 8);
+      pinGlyph(g, mx + mw - 26, ry + 16, "#c3c9d2");
+    }
+  });
+  bone(g, mx + 16, top + 176, 120, 8, C.bone2);
+  // number for the puzzle ring
+  g.fillStyle = C.red; g.beginPath(); g.arc(px + 22, L.cy - 34, 10, 0, 7); g.fill(); text(g, "8", px + 22, L.cy - 33.5, 12, "#fff", 700, "center"); // README install step 8
+}
+
+// ---------- icon states ----------
+function iconStates() {
+  seed = 11; vnow = 0;
+  const w = makeWater(0); w.splash(); w.advance(300);
+  return [
+    ["icon-ready", "Ready", iconData("skip"), false],
+    ["icon-ad", "Ad playing", iconData("play"), true],
+    ["icon-fast", "16x, filling", iconData("fast", 0.45, w, [{ x: 6, born: -200, r: 0.9 }, { x: 10.5, born: -420, r: 0.7 }], 0), false],
+    ["icon-adrun", "Ad at 16x", iconData("pause", 1, w, [{ x: 8, born: -300, r: 0.8 }], 0), false],
+  ];
+}
+function iconCanvas(data, badge) {
+  const c = document.createElement("canvas"); c.width = 64; c.height = 64; const g = c.getContext("2d");
+  g.putImageData(data, 0, 0);
+  if (badge) { g.save(); g.scale(64 / 26, 64 / 26); drawBadge(g, 8.5, 15.5); g.restore(); }
+  return c;
+}
+
+// ---------- render everything ----------
+const [heroC, heroG] = canvasFor("hero", 1);
+const frames = heroFrames();
+let fi = 0; setTimeout(function play() { heroFrame(heroG, frames[fi]); fi = (fi + 1) % frames.length; setTimeout(play, 1000 / FPS); }, 0);
+
+const iconsEl = document.getElementById("icons");
+const icons = iconStates().map(([name, label, data, badge]) => {
+  const c = iconCanvas(data, badge); const fig = document.createElement("figure"); fig.append(c, label); iconsEl.append(fig); return [name, c];
+});
+const [s1, g1] = canvasFor("step1", 2); extensionsPage(g1, { devOn: false, highlightToggle: true });
+const [s2, g2] = canvasFor("step2", 2); extensionsPage(g2, { devOn: true, highlightLoad: true });
+const [s3, g3] = canvasFor("step3", 2); pinPage(g3);
+
+async function put(name, canvas) {
+  const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+  const res = await fetch(`/save/${name}.png`, { method: "PUT", body: blob });
+  if (!res.ok) throw new Error(name);
+}
+document.getElementById("save").onclick = async () => {
+  const st = document.getElementById("status"); st.textContent = "Saving...";
+  const off = document.createElement("canvas"); off.width = W; off.height = H; const og = off.getContext("2d");
+  for (let i = 0; i < frames.length; i++) { heroFrame(og, frames[i]); await put(`hero-${String(i).padStart(3, "0")}`, off); }
+  for (const [name, c] of icons) await put(name, c);
+  await put("install-1-developer-mode", s1); await put("install-2-load-unpacked", s2); await put("install-3-pin", s3);
+  st.textContent = `Saved ${frames.length} frames and ${icons.length + 3} images.`;
+};
+</script>
+</body>
+</html>
