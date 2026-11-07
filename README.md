@@ -64,8 +64,10 @@ In **Click to start** and **Automatic**, a click during an ad starts or stops th
 |---|---|
 | ▶\| | Ready |
 | ▶ with "AD" | An ad is playing |
-| ⏩ filling with white | Playing at 16x. Each click pours in more; the level drains as the time runs out, so it shows the time left. |
+| ⏩ filling with white | Playing at 16x. The first click fills about a quarter, and each further click adds a little less. The level drains steadily as the time runs out, so it shows the time left. |
 | ⏸ filled with white | An ad is playing at 16x. Click to stop. |
+
+The water in the icon moves when you click, and bubbles rise as it drains. To turn this off, open **Options** and clear **Waves and bubbles**. The icon still fills and drains.
 
 ## Updating
 

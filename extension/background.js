@@ -46,6 +46,14 @@ const TITLES = {
   adrun: "Ad at 16x - click to stop",
 };
 
+// Settings: "Waves and bubbles" (default on). Off keeps the fill level,
+// which shows the time left, but with a flat surface and no bubbles.
+let effects = true;
+chrome.storage?.sync.get({ effects: true }, (v) => (effects = v.effects));
+chrome.storage?.onChanged.addListener((c) => {
+  if (c.effects) effects = c.effects.newValue;
+});
+
 /** tabId -> { kind, endAt, scale, shown, bubbles, water } for animated tabs. */
 const running = new Map();
 let loop = 0;
@@ -60,7 +68,7 @@ function setState(tabId, state, leftMs) {
     const now = Date.now();
     // Each click (and the start of an ad run) sends up a few bubbles.
     const bubbles = (prev?.bubbles ?? []).filter((b) => now - b.born < BUBBLE_MS);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (effects ? 3 : 0); i++) {
       bubbles.push({ x: 3 + Math.random() * 10, born: now + i * 90, r: 0.6 + Math.random() * 0.5 });
     }
     const water = prev?.water ?? makeWater(now);
@@ -96,7 +104,7 @@ function tick() {
     const target = r.kind === "adrun" ? 1 : Math.min(1, Math.max(0, r.endAt - now) / r.scale);
     r.bubbles = r.bubbles.filter((b) => now - b.born < BUBBLE_MS);
     // Now and then a single bubble, so the liquid stays alive between clicks.
-    if (Math.random() < 0.07) {
+    if (effects && Math.random() < 0.07) {
       r.bubbles.push({ x: 2 + Math.random() * 12, born: now, r: 0.5 + Math.random() * 0.4 });
     }
     r.water.advance(now);
@@ -107,7 +115,9 @@ function tick() {
       running.delete(tabId);
       continue;
     }
-    paint(tabId, r.kind === "adrun" ? "pause" : "fast", r.shown, now, r.bubbles, r.water.surface);
+    const glyph = r.kind === "adrun" ? "pause" : "fast";
+    if (effects) paint(tabId, glyph, r.shown, now, r.bubbles, r.water.surface);
+    else paint(tabId, glyph, r.shown, now);
   }
   if (running.size === 0) {
     clearInterval(loop);
@@ -216,7 +226,48 @@ const WHITE = "#ffffff";
 
 const ICON_SIZES = [16, 32, 40, 48];
 
-function draw(size, glyph, level, t, bubbles = [], surface = flat) {
+// Icon geometry in 16-unit space. top/height: the red shape's band (full
+// width); n: superellipse roundness; glyph: scale of the white glyph around
+// the shape's centre. 1.43 : 1 with n = 3.7 was the measured closest smooth
+// fit to the usual video-button proportions; glyphs are 25% smaller to match.
+const SHAPE = { top: 2.4, height: 11.2, n: 3.7, glyph: 0.75 };
+
+// The red shape. With sh.n set: a superellipse (|x/a|^n + |y/b|^n = 1),
+// one smooth outline with no seams, sides bowed and corners rounded by a
+// single number n (higher = squarer). Otherwise: a rounded box whose sides
+// can bow out slightly (sh.radius, sh.bulge).
+function shapePath(g, s, sh) {
+  if (sh.n) {
+    const a = (8 - (sh.inset ?? 0)) * s, b = (sh.height / 2) * s;
+    const cx = 8 * s, cy = (sh.top + sh.height / 2) * s, e = 2 / sh.n;
+    g.beginPath();
+    for (let i = 0; i < 96; i++) {
+      const th = (i / 96) * Math.PI * 2, c = Math.cos(th), si = Math.sin(th);
+      const x = cx + a * Math.sign(c) * Math.abs(c) ** e;
+      const y = cy + b * Math.sign(si) * Math.abs(si) ** e;
+      if (i === 0) g.moveTo(x, y);
+      else g.lineTo(x, y);
+    }
+    g.closePath();
+    return;
+  }
+  // Sides are inset by the bulge so the bowed edges stay inside the icon.
+  const l = sh.bulge * s, r = (16 - sh.bulge) * s, t = sh.top * s, b = (sh.top + sh.height) * s;
+  const k = sh.radius * s, q = sh.bulge * s, cx = 8 * s, cy = t + (b - t) / 2;
+  g.beginPath();
+  g.moveTo(l + k, t);
+  g.quadraticCurveTo(cx, t - q, r - k, t);
+  g.quadraticCurveTo(r, t, r, t + k);
+  g.quadraticCurveTo(r + q, cy, r, b - k);
+  g.quadraticCurveTo(r, b, r - k, b);
+  g.quadraticCurveTo(cx, b + q, l + k, b);
+  g.quadraticCurveTo(l, b, l, b - k);
+  g.quadraticCurveTo(l - q, cy, l, t + k);
+  g.quadraticCurveTo(l, t, l + k, t);
+  g.closePath();
+}
+
+function draw(size, glyph, level, t, bubbles = [], surface = flat, sh = SHAPE) {
   const c = new OffscreenCanvas(size, size);
   const g = c.getContext("2d");
   // At 16 px the waves and bubbles are about 1 px and get lost, so make the
@@ -225,31 +276,35 @@ function draw(size, glyph, level, t, bubbles = [], surface = flat) {
   const waveBoost = tiny ? 1.7 : 1;
   const minBubbleR = tiny ? 1 : 0.6;
   const s = size / 16;
-  const box = () => {
-    g.beginPath();
-    g.roundRect(0, 2 * s, 16 * s, 12 * s, 3.5 * s);
-  };
+  const box = () => shapePath(g, s, sh);
+  // Glyph coordinates are designed for a 12-unit box centred at (8, 8);
+  // gx/gy map them onto the current shape and glyph scale.
+  const mid = sh.top + sh.height / 2;
+  const gx = (x) => (8 + (x - 8) * sh.glyph) * s;
+  const gy = (y) => (mid + (y - 8) * sh.glyph) * s;
+  const gw = (w) => w * sh.glyph * s;
   const tri = (x0, x1) => {
     g.beginPath();
-    g.moveTo(x0 * s, 4.5 * s);
-    g.lineTo(x1 * s, 8 * s);
-    g.lineTo(x0 * s, 11.5 * s);
+    g.moveTo(gx(x0), gy(4.5));
+    g.lineTo(gx(x1), gy(8));
+    g.lineTo(gx(x0), gy(11.5));
     g.closePath();
     g.fill();
   };
   const drawGlyph = (color) => {
     g.fillStyle = color;
+    // Every glyph's bounding box is centred on x = 8 (and y = 8).
     if (glyph === "skip") {
-      tri(5, 10);
-      g.fillRect(10 * s, 4.5 * s, 1.6 * s, 7 * s);
+      tri(4.7, 9.7); // 4.7 .. 11.3
+      g.fillRect(gx(9.7), gy(4.5), gw(1.6), gw(7));
     } else if (glyph === "play") {
-      tri(5.5, 11);
+      tri(5.25, 10.75);
     } else if (glyph === "fast") {
       tri(3, 8);
       tri(8, 13);
     } else if (glyph === "pause") {
-      g.fillRect(5 * s, 4.5 * s, 2 * s, 7 * s);
-      g.fillRect(9 * s, 4.5 * s, 2 * s, 7 * s);
+      g.fillRect(gx(5), gy(4.5), gw(2), gw(7));
+      g.fillRect(gx(9), gy(4.5), gw(2), gw(7));
     }
   };
 
@@ -261,7 +316,8 @@ function draw(size, glyph, level, t, bubbles = [], surface = flat) {
 
   if (level > 0.001) {
     // 2. Liquid below a wavy surface, with inverted colors.
-    const y = 2 * s + 12 * s * (1 - level);
+    const bulge = sh.n ? 0 : sh.bulge ?? 0;
+    const y = (sh.top - bulge) * s + (sh.height + 2 * bulge) * s * (1 - level);
     g.save();
     box();
     g.clip();
@@ -280,7 +336,7 @@ function draw(size, glyph, level, t, bubbles = [], surface = flat) {
     for (const b of bubbles) {
       const age = (t - b.born) / BUBBLE_MS;
       if (age < 0 || age > 1) continue;
-      const by = 14 * s - age * 12 * s; // bottom of the box to the top
+      const by = (sh.top + sh.height) * s - age * sh.height * s; // bottom of the box to the top
       if (by < y) continue; // popped at the surface (clip hides the rest)
       const wobble = Math.sin(age * 9 + b.x) * 0.6 * s;
       g.beginPath();
@@ -300,4 +356,12 @@ function draw(size, glyph, level, t, bubbles = [], surface = flat) {
     g.restore();
   }
   return g.getImageData(0, 0, size, size);
+}
+
+// Replace the packaged PNG toolbar icon with the drawn ready icon, so the
+// default matches the animated states. (Runs each time the worker starts.)
+{
+  const imageData = {};
+  for (const size of ICON_SIZES) imageData[size] = draw(size, "skip", 0, 0);
+  chrome.action.setIcon({ imageData }).catch(() => {});
 }
