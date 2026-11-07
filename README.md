@@ -5,6 +5,8 @@
 Get through video ads fast. Click the button (or press **Alt+S**) and the video plays at **16x speed** for a moment, then goes back to normal. On YouTube it can also see when an ad starts and speed through it for you.
 
 - Works in **Chrome on a computer**. It also works in Edge and Brave. It does not work on phones, Firefox, or Safari.
+- Works on YouTube and Amazon Prime Video, and most other sites with a normal video player.
+- Does **not** work on live streams. A live video cannot play faster than it is broadcast.
 - It does not block ads. The ad still plays, only much faster.
 - It does not collect anything about you and does not connect to the internet.
 - Not made by or connected to YouTube or Google.
@@ -61,6 +63,7 @@ This extension is not in the Chrome Web Store, so you add it by hand:
 - **Options is missing:** you have an old version. Update it (see Updates).
 - **AD never shows on YouTube:** refresh the YouTube tab. If it still does not show, YouTube may have changed its site. Please [open an issue](https://github.com/vviseguy/youtube-skip/issues).
 - **Alt+S does nothing:** another extension may use Alt+S. Open `chrome://extensions/shortcuts` and choose a different key.
+- **Nothing happens on a live stream:** this is expected. Live video cannot be sped up.
 - **Nothing happens on a site:** the site may not use a normal video player. The extension cannot speed up that video.
 
 ## For developers
